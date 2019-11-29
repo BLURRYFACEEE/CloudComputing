@@ -329,12 +329,12 @@ docker ps看一下结果！
 #### 我在路径/opt/mysql_centos/test下创建nano Dockerfile
 
 ```
-FROM centos:latest
+FROM centos:7
 MAINTAINER ZSG
 #yum下载mariadb的相关程序
 RUN yum -y install mariadb-server openssh-server -y && yum clean all
 #赋予权限给mariadb
-RUN mysql_install_db && chown -R mysql:mysql /var/lib/mysql/
+RUN mysql_install_db --force&& chown -R mysql:mysql /var/lib/mysql/
 #将主机响应文件传到容器
 VOLUME /var/lib/mysql/
 ADD mysql.sh /mysql.sh
@@ -419,6 +419,14 @@ docker run -d -p 8889:80 -v /myweb/:/var/www/html/ --name centos_php20191117 cen
 <img src="./image/CentOS_PHP.png" style="zoom:100%;" />
 
 ### ④安装WordPres
+
+#### 这边我们有两个方法
+
+#### (1)将前面单独创建好的centos_mariadb容器和centos_php容器通过link进行连接
+
+#### (2)将前面安装Dockerfile进行统一创建容器
+
+### 方法(1)将前面单独创建好的centos_mariadb容器和centos_php容器通过link进行连接
 
 ##### 将前面创建的centos_mariadb容器和centos_php进行连接,并将WordPress的文件路径挂载到WordPress网页的路径
 
@@ -553,11 +561,11 @@ require_once( ABSPATH . 'wp-settings.php' );
 
 <img src="./image/Dockerfile_Wordpress.png" style="zoom:100%;" />
 
-提交完之后，输入完点击创建！
+#### 提交完之后，输入完点击创建！
 
 <img src="./image/Dockerfile_WordPress2.png" style="zoom:100%;" />
 
-成功！
+#### 成功！
 
 <img src="./image/Success.png" style="zoom:100%;" />
 
@@ -565,4 +573,106 @@ require_once( ABSPATH . 'wp-settings.php' );
 
 <img src="./image/Success2.png" style="zoom:100%;" />
 
+
+
+### 方法(2)将前面Dockerfile进行统一并且改变shell脚本文件mysql.sh来创建容器centos_wdps
+
+#### Dockerfile
+
+```
+FROM centos:7
+MAINTAINER ZSG
+RUN yum -y install mariadb-server openssh-server && yum clean all
+#RUN sed -i '$a\127.0.0.1 localhost' /etc/hosts
+RUN mysql_install_db --force&& chown -R mysql:mysql /var/lib/mysql/
+VOLUME /var/lib/mysql/
+ADD mysql.sh /mysql.sh
+RUN chmod 755 /mysql.sh
+EXPOSE 22
+EXPOSE 3306
+RUN rpm -Uvh https://mirror.webtatic.com/yum/el7/epel-release.rpm
+RUN rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm
+#RUN rm -rf /etc/yum.repos.d/*
+#RUN echo -e "[yum]\nname = yum\ngpgcheck = 0\nbaseurl = http://192.168.2.11:8000" > /etc/yum.repos.d/yum.repo
+#RUN yum -y install wget && wget -O /etc/yum.repos.d/CentOS-Base.repo http://mirrors.aliyun.com/repo/Centos-7.repo
+#RUN yum clean all && yum makecache
+RUN yum install httpd php70w php70w-mysql php70w-mbstring -y && yum clean all
+EXPOSE 80
+#CMD nohup sh -c '/mysql.sh && /usr/sbin/httpd","-f","/etc/httpd/conf/httpd.conf","-DFOREGROUND'
+#CMD ["/usr/sbin/httpd","-f","/etc/httpd/conf/httpd.conf","-DFOREGROUND"]
+CMD ["/mysql.sh"]
+```
+
+
+
+#### mysql.sh
+
+```
+#!/bin/bash
+Author:ZSG
+mysqld_safe &
+sleep 5
+mysqladmin -uroot password '123456'
+mysql -uroot -p123456 -e "GRANT ALL ON *.* TO 'root'@'%' IDENTIFIED BY '123456';FLUSH PRIVILEGES;"
+sed -i 's/UsePAM yes/UsePAM no/g' /etc/ssh/sshd_config && ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key
+echo 123456 | passwd --stdin root
+/usr/sbin/httpd -f /etc/httpd/conf/httpd.conf -DFOREGROUND
+/usr/sbin/sshd -D
+```
+
+
+
+#### 输入创建镜像centos:wdps
+
+```
+docker build -f Dockerfile -t centos:wdps .
+```
+
+<img src="./image/Wdps1.png" style="zoom:100%;" />
+
+#### 然后运行创建容器也要有改动
+
+```
+docker run -d -p 8889:80 -p 20003:22 -v /myweb/:/var/www/html/ --name centos_wdps centos:wdps
+```
+
+#### 利用两个-p来进行两个端口映射！一个是php一个是数据库！名字叫centos_wdps容器
+
+<img src="./image/Wdps2.png" style="zoom:100%;" />
+
+#### 登录进centos_wdps这个容器中创建WordPress所需要的数据库
+
+```
+mysql -uroot -p123456
+```
+
+```
+CREATE DATABASE HEHE;
+```
+
+```
+GRANT ALL ON ZSG.* TO 'HEHE'@'%';
+```
+
+```
+FLUSH PRIVILEGES;
+```
+
+#### 浏览器输入IP:8889进入WORDPRESS页面！
+
+#### 这里使用root用户登录访问WordPress数据库
+
+<img src="./image/Wdps3.png" style="zoom:100%;" />
+
+
+
+# 登录成功！
+
+<img src="./image/Wdps4.png" style="zoom:100%;" />
+
+
+
+#### 到此两种方法装WordPress都完成了！
+
 真滴恐怖，，，网络上大多数的代码要不然就是太早的yum下载到的也是太早的，各个组件版本不一样又会冲突！？！？！？不过最终翻过这个高山，你就会看到河流！穿越这片丛林，你就会看到彩虹！智商不够，抓紧学习！
+
