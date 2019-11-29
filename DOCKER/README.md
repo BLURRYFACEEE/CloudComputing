@@ -662,7 +662,7 @@ FLUSH PRIVILEGES;
 
 #### 这里使用root用户登录访问WordPress数据库
 
-<img src="./image/Wdps3.png" style="zoom:100%;" />
+<img src="./image/Wdps5.png" style="zoom:100%;" />
 
 
 
