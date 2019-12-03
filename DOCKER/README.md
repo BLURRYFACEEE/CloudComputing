@@ -9,7 +9,7 @@
 
 
 
-## CentOS7安装Docker
+## 一、CentOS7安装Docker
 
 ### 要求：CentOS7且内核版本大于等于3.10
 
@@ -109,7 +109,7 @@ docker run hello-world
 
 
 
-## 拉取CentOS镜像，并基于该镜像运行容器，在容器实例上完 成WordPress的安装，并推送到Docker Hub 
+## 二、拉取CentOS镜像，并基于该镜像运行容器，在容器实例上完 成WordPress的安装，并推送到Docker Hub 
 
 ### Docker加载CentOS7
 
@@ -147,8 +147,6 @@ docker ps
 ```
 docker exec -it f14 /bin/bash
 ```
-
-变成这样即为成功
 
 #### 你可以在此shell运行任何命令，比如安装Apache Web服务器：
 
@@ -211,7 +209,7 @@ docker push 镜像名:tag标签
 
 
 
-## 利用Dockerfile创建一个完成WordPress安装的镜像并推送 到Docker Hub
+## 三、利用Dockerfile创建一个完成WordPress安装的镜像并推送 到Docker Hub
 
 ### **提示：FROM的镜像一定要选好版本，不同版本差别很大！！！**
 
@@ -351,6 +349,7 @@ CMD ["/mysql.sh"]
 #Author:ZSG
 mysqld_safe &
 sleep 5
+#赋予mariadb密码和权限
 mysqladmin -uroot password '123456'
 mysql -uroot -p123456 -e "GRANT ALL ON *.* TO 'root'@'%' IDENTIFIED BY '123456';FLUSH PRIVILEGES;"
 sed -i 's/UsePAM yes/UsePAM no/g' /etc/ssh/sshd_config && ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key
@@ -389,12 +388,16 @@ mysql -uroot -p123456
 ```
 FROM centos:7
 MAINTAINER ZSG
+#获取php的rpm
 RUN rpm -Uvh https://mirror.webtatic.com/yum/el7/epel-release.rpm
 RUN rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm
 #RUN rm -rf /etc/yum.repos.d/*
 #RUN echo -e "[yum]\nname = yum\ngpgcheck = 0\nbaseurl = http://192.168.2.11:8000" > /etc/yum.repos.d/yum.repo
+安装php需要的httpd服务和php自身
 RUN yum install httpd php70w php70w-mysql php70w-mbstring -y && yum clean all
+#开启端口80
 EXPOSE 80
+#设置启动命令httpd
 CMD ["/usr/sbin/httpd","-f","/etc/httpd/conf/httpd.conf","-DFOREGROUND"]
 ```
 
@@ -582,24 +585,32 @@ require_once( ABSPATH . 'wp-settings.php' );
 ```
 FROM centos:7
 MAINTAINER ZSG
+#yum安装数据库服务端
 RUN yum -y install mariadb-server openssh-server && yum clean all
 #RUN sed -i '$a\127.0.0.1 localhost' /etc/hosts
+#yum安装数据库
 RUN mysql_install_db --force&& chown -R mysql:mysql /var/lib/mysql/
+#挂载主机目录
 VOLUME /var/lib/mysql/
 ADD mysql.sh /mysql.sh
 RUN chmod 755 /mysql.sh
+#开启端口22 3306
 EXPOSE 22
 EXPOSE 3306
+#获取rpm网址
 RUN rpm -Uvh https://mirror.webtatic.com/yum/el7/epel-release.rpm
 RUN rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm
 #RUN rm -rf /etc/yum.repos.d/*
 #RUN echo -e "[yum]\nname = yum\ngpgcheck = 0\nbaseurl = http://192.168.2.11:8000" > /etc/yum.repos.d/yum.repo
 #RUN yum -y install wget && wget -O /etc/yum.repos.d/CentOS-Base.repo http://mirrors.aliyun.com/repo/Centos-7.repo
 #RUN yum clean all && yum makecache
+#安装httpd php
 RUN yum install httpd php70w php70w-mysql php70w-mbstring -y && yum clean all
+#开启端口80
 EXPOSE 80
 #CMD nohup sh -c '/mysql.sh && /usr/sbin/httpd","-f","/etc/httpd/conf/httpd.conf","-DFOREGROUND'
 #CMD ["/usr/sbin/httpd","-f","/etc/httpd/conf/httpd.conf","-DFOREGROUND"]
+#执行/mysql.sh的文件就好了
 CMD ["/mysql.sh"]
 ```
 
@@ -612,10 +623,12 @@ CMD ["/mysql.sh"]
 Author:ZSG
 mysqld_safe &
 sleep 5
+#对mariadb创建WordPress数据库并授予权限
 mysqladmin -uroot password '123456'
 mysql -uroot -p123456 -e "GRANT ALL ON *.* TO 'root'@'%' IDENTIFIED BY '123456';FLUSH PRIVILEGES;"
 sed -i 's/UsePAM yes/UsePAM no/g' /etc/ssh/sshd_config && ssh-keygen -t rsa -f /etc/ssh/ssh_host_rsa_key
 echo 123456 | passwd --stdin root
+#开机自启动httpd服务
 /usr/sbin/httpd -f /etc/httpd/conf/httpd.conf -DFOREGROUND
 /usr/sbin/sshd -D
 ```
