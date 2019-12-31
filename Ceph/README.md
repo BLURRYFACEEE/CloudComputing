@@ -1,3 +1,5 @@
+![](./images2/YuanDan.jpg)
+
 # Ceph的安装和实践
 
 ## Ceph的部署
